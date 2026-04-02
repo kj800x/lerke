@@ -1412,6 +1412,7 @@ dependencies = [
  "opentelemetry-prometheus",
  "opentelemetry_sdk",
  "prometheus",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

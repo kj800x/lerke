@@ -25,24 +25,58 @@ pub struct GrafanaAlert {
     pub starts_at: String,
     #[serde(default)]
     pub ends_at: String,
-    #[serde(default)]
+    #[serde(default, rename = "generatorURL")]
     pub generator_url: Option<String>,
     pub fingerprint: String,
-    #[serde(default)]
+    #[serde(default, rename = "silenceURL")]
     pub silence_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "dashboardURL")]
     pub dashboard_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "panelURL")]
     pub panel_url: Option<String>,
 }
 
 impl GrafanaAlert {
+    /// Substitute {{ label_name }} placeholders with label values
+    fn interpolate(&self, raw: &str) -> String {
+        let mut result = raw.to_string();
+        if let Some(obj) = self.labels.as_object() {
+            for (key, value) in obj {
+                let owned = value.to_string();
+                let val_str = value.as_str().unwrap_or(&owned);
+                let pattern = ["\\{\\{\\s*", &regex::escape(key), "\\s*\\}\\}"].concat();
+                if let Ok(re) = regex::Regex::new(&pattern) {
+                    result = re.replace_all(&result, val_str).to_string();
+                }
+            }
+        }
+        result
+    }
+
     fn alert_name(&self) -> String {
-        self.labels
+        let raw = self
+            .labels
             .get("alertname")
             .and_then(|v| v.as_str())
-            .unwrap_or("Unknown Alert")
-            .to_string()
+            .unwrap_or("Unknown Alert");
+        self.interpolate(raw)
+    }
+
+    /// Return annotations with label interpolation applied to all values
+    fn interpolated_annotations(&self) -> serde_json::Value {
+        if let Some(obj) = self.annotations.as_object() {
+            let mut result = serde_json::Map::new();
+            for (key, value) in obj {
+                let interpolated = match value.as_str() {
+                    Some(s) => serde_json::Value::String(self.interpolate(s)),
+                    None => value.clone(),
+                };
+                result.insert(key.clone(), interpolated);
+            }
+            serde_json::Value::Object(result)
+        } else {
+            self.annotations.clone()
+        }
     }
 
     fn severity(&self) -> Option<String> {
@@ -99,6 +133,26 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
     let alert_name = alert.alert_name();
     let raw_payload = serde_json::to_string(alert).ok();
 
+    // Build var- query params from non-filtered labels
+    let label_params = build_label_query_params(&alert.labels);
+
+    let dashboard_url = alert
+        .dashboard_url
+        .as_deref()
+        .map(|u| append_query_params(&state.config.rewrite_grafana_url(u), &label_params));
+    let panel_url = alert
+        .panel_url
+        .as_deref()
+        .map(|u| append_query_params(&state.config.rewrite_grafana_url(u), &label_params));
+    let silence_url = alert
+        .silence_url
+        .as_deref()
+        .map(|u| state.config.rewrite_grafana_url(u));
+    let generator_url = alert
+        .generator_url
+        .as_deref()
+        .map(|u| state.config.rewrite_grafana_url(u));
+
     let existing = queries::get_incident_by_grafana_uid(&state.db, &alert.fingerprint).await?;
 
     match existing {
@@ -110,11 +164,12 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
                 &alert_name,
                 "firing",
                 alert.severity().as_deref(),
-                alert.dashboard_url.as_deref(),
-                alert.panel_url.as_deref(),
-                alert.silence_url.as_deref(),
+                dashboard_url.as_deref(),
+                panel_url.as_deref(),
+                silence_url.as_deref(),
+                generator_url.as_deref(),
                 &serde_json::to_string(&alert.labels).unwrap_or_default(),
-                &serde_json::to_string(&alert.annotations).unwrap_or_default(),
+                &serde_json::to_string(&alert.interpolated_annotations()).unwrap_or_default(),
                 &now,
             )
             .await?;
@@ -136,6 +191,7 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
                     &state.discord_http,
                     state.config.discord_channel_id,
                     &incident,
+                    state.config.lerke_url.as_deref(),
                 )
                 .await
                 {
@@ -179,9 +235,9 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
 
             let event_msg = if alert.status == "resolved" {
                 metrics::get().incidents_resolved.add(1, &[]);
-                format!("Alert {} resolved", alert_name)
+                "Alert resolved".to_string()
             } else {
-                format!("Alert {} status changed to {}", alert_name, alert.status)
+                "Alert is firing".to_string()
             };
 
             queries::create_incident_event(
@@ -194,15 +250,15 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
             .await?;
 
             // Update Discord
-            if let (Some(ref ch_id), Some(ref msg_id), Some(ref thread_id)) = (
-                incident.discord_channel_id,
-                incident.discord_message_id,
-                incident.discord_thread_id,
+            if let (Some(ch_id), Some(msg_id), Some(thread_id)) = (
+                &incident.discord_channel_id,
+                &incident.discord_message_id,
+                &incident.discord_thread_id,
             ) {
                 // Fetch updated incident for embed
                 if let Some(updated) = queries::get_incident(&state.db, incident.id).await? {
                     if let Err(e) =
-                        notifier::update_incident_embed(&state.discord_http, ch_id, msg_id, &updated)
+                        notifier::update_incident_embed(&state.discord_http, ch_id, msg_id, &updated, state.config.lerke_url.as_deref())
                             .await
                     {
                         log::error!("Failed to update Discord embed: {}", e);
@@ -248,4 +304,38 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
     }
 
     Ok(())
+}
+
+fn build_label_query_params(labels: &serde_json::Value) -> String {
+    let Some(obj) = labels.as_object() else {
+        return String::new();
+    };
+    let mut params = String::new();
+    for (key, value) in obj {
+        if notifier::FILTERED_LABELS.contains(&key.as_str()) {
+            continue;
+        }
+        let owned;
+        let val_str = match value.as_str() {
+            Some(s) => s,
+            None => {
+                owned = value.to_string();
+                &owned
+            }
+        };
+        params.push_str(&format!("&var-{}={}", key, val_str));
+    }
+    params
+}
+
+fn append_query_params(url: &str, params: &str) -> String {
+    if params.is_empty() {
+        return url.to_string();
+    }
+    if url.contains('?') {
+        format!("{}{}", url, params)
+    } else {
+        // Replace leading & with ?
+        format!("{}?{}", url, &params[1..])
+    }
 }

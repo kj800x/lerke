@@ -2,6 +2,7 @@ use actix_web::{get, web};
 use maud::{html, Markup, DOCTYPE};
 
 use crate::db::models::AppState;
+use crate::web::formatting::format_eastern;
 use crate::web::header;
 
 #[get("/debug/webhooks")]
@@ -49,7 +50,7 @@ pub async fn debug_webhooks_fragment(state: web::Data<AppState>) -> Markup {
                 div class="webhook-entry" {
                     div class="webhook-header" {
                         span class="webhook-index" { "#" (entries.len() - i) }
-                        span class="webhook-time" { (entry.received_at) }
+                        span class="webhook-time" { (format_eastern(&entry.received_at)) }
                     }
                     pre class="webhook-body" {
                         code { (pretty_json(&entry.raw_body)) }

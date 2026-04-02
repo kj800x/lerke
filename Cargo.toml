@@ -52,6 +52,7 @@ prometheus = "0.13"
 
 # misc
 md5 = "0.7"
+regex = "1"
 
 [lints.clippy]
 unwrap_used = "deny"

@@ -1,9 +1,12 @@
 pub mod debug;
+pub mod formatting;
 pub mod header;
+pub mod history;
 pub mod incident_detail;
 pub mod incidents;
 
 pub use debug::{debug_webhooks_fragment, debug_webhooks_page};
+pub use history::{history_fragment, history_page};
 pub use incident_detail::incident_events_fragment;
 pub use incident_detail::incident_detail_page;
 pub use incidents::{incidents_fragment, incidents_page};

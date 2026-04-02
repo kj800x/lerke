@@ -64,6 +64,7 @@ pub struct Incident {
     pub last_status_change_at: String,
     pub resolved_at: Option<String>,
     pub created_at: String,
+    pub grafana_generator_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

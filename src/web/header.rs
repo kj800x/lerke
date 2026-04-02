@@ -12,6 +12,7 @@ pub fn render(active_page: &str) -> Markup {
                 }
                 div class="subheader-nav" {
                     a href="/incidents" class=(if active_page == "incidents" { "subheader-nav-item active" } else { "subheader-nav-item" }) { "Incidents" }
+                    a href="/history" class=(if active_page == "history" { "subheader-nav-item active" } else { "subheader-nav-item" }) { "History" }
                     a href="/debug/webhooks" class=(if active_page == "debug" { "subheader-nav-item active" } else { "subheader-nav-item" }) { "Debug" }
                 }
             }

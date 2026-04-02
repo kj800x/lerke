@@ -58,15 +58,16 @@ pub async fn create_incident(
     grafana_dashboard_url: Option<&str>,
     grafana_panel_url: Option<&str>,
     grafana_silence_url: Option<&str>,
+    grafana_generator_url: Option<&str>,
     labels_json: &str,
     annotations_json: &str,
     now: &str,
 ) -> AppResult<i64> {
     let result = sqlx::query(
         "INSERT INTO incidents (grafana_alert_uid, alert_name, status, severity, \
-         grafana_dashboard_url, grafana_panel_url, grafana_silence_url, \
+         grafana_dashboard_url, grafana_panel_url, grafana_silence_url, grafana_generator_url, \
          labels_json, annotations_json, first_firing_at, last_status_change_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(grafana_alert_uid)
     .bind(alert_name)
@@ -75,6 +76,7 @@ pub async fn create_incident(
     .bind(grafana_dashboard_url)
     .bind(grafana_panel_url)
     .bind(grafana_silence_url)
+    .bind(grafana_generator_url)
     .bind(labels_json)
     .bind(annotations_json)
     .bind(now)

@@ -9,39 +9,94 @@ use crate::error::AppError;
 const COLOR_RED: u32 = 0xFF0000;
 const COLOR_GREEN: u32 = 0x00CC00;
 
-fn build_embed(incident: &Incident) -> CreateEmbed {
+pub const FILTERED_LABELS: &[&str] = &["alertname", "grafana_folder", "priority"];
+
+fn get_annotation(incident: &Incident, key: &str) -> Option<String> {
+    serde_json::from_str::<serde_json::Value>(&incident.annotations_json)
+        .ok()
+        .and_then(|v| v.get(key)?.as_str().map(|s| s.to_string()))
+}
+
+/// Collect annotations that end in _url as (label, url) pairs
+fn collect_url_annotations(incident: &Incident) -> Vec<(String, String)> {
+    let mut urls = Vec::new();
+    if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json) {
+        if let Some(obj) = annotations.as_object() {
+            for (key, value) in obj {
+                if let Some(prefix) = key.strip_suffix("_url") {
+                    if let Some(url) = value.as_str() {
+                        urls.push((url_key_to_label(prefix), url.to_string()));
+                    }
+                }
+            }
+        }
+    }
+    urls
+}
+
+/// Convert a snake_case key to Sentence case label (e.g. "jobfather" -> "Jobfather")
+pub fn url_key_to_label(key: &str) -> String {
+    let label = key.replace('_', " ");
+    let mut chars = label.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+    }
+}
+
+fn build_embed(incident: &Incident, lerke_url: Option<&str>) -> CreateEmbed {
     let color = if incident.status == "resolved" {
         COLOR_GREEN
     } else {
         COLOR_RED
     };
 
-    let status_text = if incident.status == "resolved" {
-        "Resolved"
-    } else {
-        "FIRING"
-    };
-
     let mut embed = CreateEmbed::new()
         .title(&incident.alert_name)
-        .color(color)
-        .field("Status", status_text, true)
-        .field("Started", &incident.first_firing_at, true);
+        .color(color);
 
+    // Build description: summary, then links
+    let mut desc_parts = Vec::new();
+
+    if let Some(summary) = get_annotation(incident, "summary") {
+        desc_parts.push(summary);
+    }
+    if let Some(description) = get_annotation(incident, "description") {
+        desc_parts.push(description);
+    }
+
+    let mut links = Vec::new();
+    if let Some(base) = lerke_url {
+        links.push(format!("[Lerke]({}/incidents/{})", base, incident.id));
+    }
+    for (label, url) in collect_url_annotations(incident) {
+        links.push(format!("[{}]({})", label, url));
+    }
     if let Some(ref url) = incident.grafana_dashboard_url {
-        embed = embed.field("Dashboard", format!("[Open in Grafana]({})", url), false);
+        links.push(format!("[Dashboard]({})", url));
     }
-
     if let Some(ref url) = incident.grafana_panel_url {
-        embed = embed.field("Panel", format!("[View Panel]({})", url), false);
+        links.push(format!("[Panel]({})", url));
+    }
+    if !links.is_empty() {
+        desc_parts.push(links.join(" · "));
     }
 
-    if let Some(ref url) = incident.grafana_silence_url {
-        embed = embed.field("Silence", format!("[Silence Alert]({})", url), false);
+    if !desc_parts.is_empty() {
+        embed = embed.description(desc_parts.join("\n\n"));
     }
 
-    if let Some(ref resolved_at) = incident.resolved_at {
-        embed = embed.field("Resolved", resolved_at, true);
+    // Add alert labels as fields (vertical — inline=false), filtering out noise
+    if let Ok(labels) = serde_json::from_str::<serde_json::Value>(&incident.labels_json) {
+        if let Some(obj) = labels.as_object() {
+            for (key, value) in obj {
+                if FILTERED_LABELS.contains(&key.as_str()) {
+                    continue;
+                }
+                let val_str = value.as_str().unwrap_or(&value.to_string()).to_string();
+                embed = embed.field(key, &val_str, false);
+            }
+        }
     }
 
     embed
@@ -51,9 +106,10 @@ pub async fn send_firing_notification(
     http: &Http,
     channel_id: u64,
     incident: &Incident,
+    lerke_url: Option<&str>,
 ) -> Result<(String, String, String), AppError> {
     let channel = ChannelId::new(channel_id);
-    let embed = build_embed(incident);
+    let embed = build_embed(incident, lerke_url);
 
     let message = channel
         .send_message(http, CreateMessage::new().embed(embed))
@@ -75,11 +131,7 @@ pub async fn send_firing_notification(
         .await
         .map_err(|e| AppError::Discord(format!("Failed to create thread: {}", e)))?;
 
-    // Post initial context in the thread
-    let context_msg = format!(
-        "Alert **{}** is now firing.\nFirst detected: {}",
-        incident.alert_name, incident.first_firing_at
-    );
+    let context_msg = "Alert is firing";
     thread
         .id
         .send_message(http, CreateMessage::new().content(context_msg))
@@ -98,6 +150,7 @@ pub async fn update_incident_embed(
     channel_id: &str,
     message_id: &str,
     incident: &Incident,
+    lerke_url: Option<&str>,
 ) -> Result<(), AppError> {
     let channel = channel_id
         .parse::<u64>()
@@ -106,7 +159,7 @@ pub async fn update_incident_embed(
         .parse::<u64>()
         .map_err(|e| AppError::Discord(format!("Invalid message ID: {}", e)))?;
 
-    let embed = build_embed(incident);
+    let embed = build_embed(incident, lerke_url);
 
     ChannelId::new(channel)
         .edit_message(http, MessageId::new(message), EditMessage::new().embed(embed))
