@@ -1,3 +1,4 @@
+mod api;
 mod config;
 mod db;
 mod deadman;
@@ -40,6 +41,10 @@ async fn start_http(
             .service(web::debug_webhooks_page)
             .service(web::debug_webhooks_fragment)
             .service(web::debug_purge)
+            .service(api::messages::create_message)
+            .service(api::messages::update_message)
+            .service(api::messages::reply_to_message)
+            .service(api::messages::delete_message)
             .service(webhooks::grafana::grafana_webhook)
             .service(webhooks::uptime_kuma::uptime_kuma_webhook)
             .service(serve_static_file!("htmx.min.js"))
