@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app.kubernetes.io/instance: lerke
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: lerke.home.coolkev.com
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+  name: lerke
+  namespace: lerke
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: lerke.home.coolkev.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: lerke
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

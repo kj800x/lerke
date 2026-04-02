@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lerke
+  name: lerke
+  namespace: lerke
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: lerke
+  template:
+    metadata:
+      labels:
+        app: lerke
+    spec:
+      containers:
+        - name: lerke
+          image: ghcr.io/kj800x/lerke:commit-$SHA
+          command: [lerke]
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: lerke-secrets
+                  key: DISCORD_BOT_TOKEN
+            - name: DISCORD_CHANNEL_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lerke-secrets
+                  key: DISCORD_CHANNEL_ID
+            - name: UPTIME_KUMA_PUSH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: lerke-secrets
+                  key: UPTIME_KUMA_PUSH_URL
+            - name: GRAFANA_URL
+              value: "https://grafana.home.coolkev.com"
+            - name: LERKE_URL
+              value: "https://lerke.home.coolkev.com"
+            - name: UPTIME_KUMA_URL
+              value: "https://kuma.home.coolkev.com"
+          volumeMounts:
+            - mountPath: /app/data
+              name: lerke-data
+          workingDir: /app
+          livenessProbe:
+            httpGet:
+              path: /api/metrics
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      imagePullSecrets:
+        - name: ghcr-kj800x
+      volumes:
+        - name: lerke-data
+          nfs:
+            path: /data/services/lerke
+            server: 10.60.1.15

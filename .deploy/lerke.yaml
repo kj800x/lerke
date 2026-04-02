@@ -1,0 +1,7 @@
+artifactRepo:
+  owner: kj800x
+  repo: lerke
+  branch: master
+team: cluster-infra
+kind: service
+namespace: lerke
