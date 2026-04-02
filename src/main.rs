@@ -39,6 +39,7 @@ async fn start_http(
             .service(web::history_fragment)
             .service(web::debug_webhooks_page)
             .service(web::debug_webhooks_fragment)
+            .service(web::debug_purge)
             .service(webhooks::grafana::grafana_webhook)
             .service(webhooks::uptime_kuma::uptime_kuma_webhook)
             .service(serve_static_file!("htmx.min.js"))

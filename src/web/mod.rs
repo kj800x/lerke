@@ -5,7 +5,7 @@ pub mod history;
 pub mod incident_detail;
 pub mod incidents;
 
-pub use debug::{debug_webhooks_fragment, debug_webhooks_page};
+pub use debug::{debug_purge, debug_webhooks_fragment, debug_webhooks_page};
 pub use history::{history_fragment, history_page};
 pub use incident_detail::incident_events_fragment;
 pub use incident_detail::incident_detail_page;

@@ -501,3 +501,42 @@ h2 {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     white-space: pre;
 }
+
+/* Purge section */
+.purge-section {
+    margin-top: 40px;
+    padding: 20px;
+    border: 1px solid rgba(248, 81, 73, 0.4);
+    border-radius: 6px;
+    background: rgba(248, 81, 73, 0.05);
+}
+.purge-section h2 {
+    color: #f85149;
+    margin-bottom: 8px;
+}
+.purge-btn {
+    margin-top: 12px;
+    padding: 8px 20px;
+    background: #da3633;
+    color: #fff;
+    border: 1px solid #f85149;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.purge-btn:hover {
+    background: #f85149;
+}
+.purge-success {
+    display: inline-block;
+    margin-top: 12px;
+    color: #3fb950;
+    font-size: 14px;
+}
+.purge-error {
+    display: inline-block;
+    margin-top: 12px;
+    color: #f85149;
+    font-size: 14px;
+}
