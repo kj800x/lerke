@@ -1,8 +1,6 @@
-use actix_web::{delete, post, put, web, HttpResponse};
+use actix_web::{HttpResponse, delete, post, put, web};
 use serde::{Deserialize, Serialize};
-use serenity::all::{
-    ChannelId, CreateEmbed, CreateMessage, CreateThread, EditMessage, MessageId,
-};
+use serenity::all::{ChannelId, CreateEmbed, CreateMessage, CreateThread, EditMessage, MessageId};
 
 use crate::db::models::AppState;
 use crate::error::AppError;
@@ -186,4 +184,3 @@ pub async fn delete_message(
 
     Ok(HttpResponse::Ok().json(serde_json::json!({ "ok": true })))
 }
-

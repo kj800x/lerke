@@ -8,7 +8,11 @@ fn parse_utc(ts: &str) -> Option<chrono::NaiveDateTime> {
 }
 
 fn to_eastern(ts: &str) -> Option<chrono::DateTime<chrono_tz::Tz>> {
-    parse_utc(ts).map(|naive| chrono::Utc.from_utc_datetime(&naive).with_timezone(&New_York))
+    parse_utc(ts).map(|naive| {
+        chrono::Utc
+            .from_utc_datetime(&naive)
+            .with_timezone(&New_York)
+    })
 }
 
 /// Format a UTC timestamp string as human-readable Eastern time.

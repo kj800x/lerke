@@ -28,11 +28,10 @@ pub async fn list_incidents(
 }
 
 pub async fn get_incident(pool: &SqlitePool, id: i64) -> AppResult<Option<Incident>> {
-    let incident =
-        sqlx::query_as::<_, Incident>("SELECT * FROM incidents WHERE id = ?")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?;
+    let incident = sqlx::query_as::<_, Incident>("SELECT * FROM incidents WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
     Ok(incident)
 }
 

@@ -1,6 +1,5 @@
 pub use actix_web::{
-    middleware,
-    web::{get as web_get, Data},
-    App, HttpServer,
+    App, HttpServer, middleware,
+    web::{Data, get as web_get},
 };
 pub use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetrics, RequestTracing};

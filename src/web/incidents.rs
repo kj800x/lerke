@@ -1,5 +1,5 @@
-use actix_web::{get, web, Responder};
-use maud::{html, Markup, DOCTYPE};
+use actix_web::{Responder, get, web};
+use maud::{DOCTYPE, Markup, html};
 
 use crate::db::models::{AppState, Incident};
 use crate::db::queries;

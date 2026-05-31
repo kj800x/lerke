@@ -20,9 +20,7 @@ pub fn init(_registry: &prometheus::Registry) -> Result<(), anyhow::Error> {
         webhooks_received: meter.u64_counter("lerke_webhooks_received").init(),
         incidents_created: meter.u64_counter("lerke_incidents_created").init(),
         incidents_resolved: meter.u64_counter("lerke_incidents_resolved").init(),
-        discord_notifications_sent: meter
-            .u64_counter("lerke_discord_notifications_sent")
-            .init(),
+        discord_notifications_sent: meter.u64_counter("lerke_discord_notifications_sent").init(),
         discord_notification_errors: meter
             .u64_counter("lerke_discord_notification_errors")
             .init(),

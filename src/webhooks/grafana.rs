@@ -1,4 +1,4 @@
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, post, web};
 use serde::Deserialize;
 
 use crate::db::models::{AppState, WebhookLogEntry};
@@ -88,10 +88,7 @@ impl GrafanaAlert {
 }
 
 #[post("/api/webhooks/grafana")]
-pub async fn grafana_webhook(
-    body: web::Bytes,
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn grafana_webhook(body: web::Bytes, state: web::Data<AppState>) -> impl Responder {
     metrics::get().webhooks_received.add(1, &[]);
 
     let raw_body = String::from_utf8_lossy(&body).to_string();
@@ -128,7 +125,10 @@ pub async fn grafana_webhook(
     HttpResponse::Ok().finish()
 }
 
-async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), crate::error::AppError> {
+async fn process_alert(
+    alert: &GrafanaAlert,
+    state: &AppState,
+) -> Result<(), crate::error::AppError> {
     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let alert_name = alert.alert_name();
     let raw_payload = serde_json::to_string(alert).ok();
@@ -213,7 +213,11 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
                 }
             }
 
-            log::info!("Created new incident {} for alert {}", incident_id, alert_name);
+            log::info!(
+                "Created new incident {} for alert {}",
+                incident_id,
+                alert_name
+            );
         }
 
         Some(incident) if incident.status != alert.status => {
@@ -256,15 +260,19 @@ async fn process_alert(alert: &GrafanaAlert, state: &AppState) -> Result<(), cra
                 &incident.discord_thread_id,
             ) {
                 // Fetch updated incident for embed
-                if let Some(updated) = queries::get_incident(&state.db, incident.id).await? {
-                    if let Err(e) =
-                        notifier::update_incident_embed(&state.discord_http, ch_id, msg_id, &updated, state.config.lerke_url.as_deref())
-                            .await
+                if let Some(updated) = queries::get_incident(&state.db, incident.id).await?
+                    && let Err(e) = notifier::update_incident_embed(
+                        &state.discord_http,
+                        ch_id,
+                        msg_id,
+                        &updated,
+                        state.config.lerke_url.as_deref(),
+                    )
+                    .await
                     {
                         log::error!("Failed to update Discord embed: {}", e);
                         metrics::get().discord_notification_errors.add(1, &[]);
                     }
-                }
 
                 if let Err(e) =
                     notifier::post_thread_update(&state.discord_http, thread_id, &event_msg).await

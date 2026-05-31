@@ -1,9 +1,9 @@
 use actix_web::{get, web};
-use maud::{html, Markup, DOCTYPE};
+use maud::{DOCTYPE, Markup, html};
 
 use crate::db::models::{AppState, Incident};
-use crate::discord::notifier::{url_key_to_label, FILTERED_LABELS};
 use crate::db::queries;
+use crate::discord::notifier::{FILTERED_LABELS, url_key_to_label};
 use crate::error::AppResult;
 use crate::web::formatting::format_eastern;
 use crate::web::header;
@@ -19,27 +19,31 @@ fn get_annotation(incident: &Incident, key: &str) -> Option<String> {
 fn collect_metadata(incident: &Incident) -> Vec<(String, String)> {
     let mut pairs = Vec::new();
 
-    if let Ok(labels) = serde_json::from_str::<serde_json::Value>(&incident.labels_json) {
-        if let Some(obj) = labels.as_object() {
+    if let Ok(labels) = serde_json::from_str::<serde_json::Value>(&incident.labels_json)
+        && let Some(obj) = labels.as_object() {
             for (key, value) in obj {
                 if FILTERED_LABELS.contains(&key.as_str()) {
                     continue;
                 }
-                pairs.push((key.clone(), value.as_str().unwrap_or(&value.to_string()).to_string()));
+                pairs.push((
+                    key.clone(),
+                    value.as_str().unwrap_or(&value.to_string()).to_string(),
+                ));
             }
         }
-    }
 
-    if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json) {
-        if let Some(obj) = annotations.as_object() {
+    if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json)
+        && let Some(obj) = annotations.as_object() {
             for (key, value) in obj {
                 if PROMOTED_ANNOTATIONS.contains(&key.as_str()) || key.ends_with("_url") {
                     continue;
                 }
-                pairs.push((key.clone(), value.as_str().unwrap_or(&value.to_string()).to_string()));
+                pairs.push((
+                    key.clone(),
+                    value.as_str().unwrap_or(&value.to_string()).to_string(),
+                ));
             }
         }
-    }
 
     pairs
 }
@@ -47,17 +51,15 @@ fn collect_metadata(incident: &Incident) -> Vec<(String, String)> {
 /// Collect annotations ending in _url as (label, url) pairs
 fn collect_url_annotations(incident: &Incident) -> Vec<(String, String)> {
     let mut urls = Vec::new();
-    if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json) {
-        if let Some(obj) = annotations.as_object() {
+    if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json)
+        && let Some(obj) = annotations.as_object() {
             for (key, value) in obj {
-                if let Some(prefix) = key.strip_suffix("_url") {
-                    if let Some(url) = value.as_str() {
+                if let Some(prefix) = key.strip_suffix("_url")
+                    && let Some(url) = value.as_str() {
                         urls.push((url_key_to_label(prefix), url.to_string()));
                     }
-                }
             }
         }
-    }
     urls
 }
 
