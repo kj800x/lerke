@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
 use actix_web::{get, web};
-use maud::{html, Markup, DOCTYPE};
+use maud::{DOCTYPE, Markup, html};
 
 use crate::db::models::{AppState, Incident};
 use crate::db::queries;
+use crate::discord::notifier::url_key_to_label;
 use crate::error::AppResult;
 use crate::web::formatting::{format_date_eastern, format_time_eastern};
-use crate::discord::notifier::url_key_to_label;
 use crate::web::header;
 use crate::web::incidents::render_labels;
 

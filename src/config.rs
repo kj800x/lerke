@@ -26,7 +26,8 @@ impl Config {
             uptime_kuma_push_url: required("UPTIME_KUMA_PUSH_URL")?,
             grafana_url: optional("GRAFANA_URL").map(|u| u.trim_end_matches('/').to_string()),
             lerke_url: optional("LERKE_URL").map(|u| u.trim_end_matches('/').to_string()),
-            uptime_kuma_url: optional("UPTIME_KUMA_URL").map(|u| u.trim_end_matches('/').to_string()),
+            uptime_kuma_url: optional("UPTIME_KUMA_URL")
+                .map(|u| u.trim_end_matches('/').to_string()),
         })
     }
 

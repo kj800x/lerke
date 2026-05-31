@@ -1,5 +1,5 @@
-use actix_web::{get, post, web, HttpResponse, Responder};
-use maud::{html, Markup, DOCTYPE};
+use actix_web::{HttpResponse, Responder, get, post, web};
+use maud::{DOCTYPE, Markup, html};
 use serenity::all::ChannelId;
 
 use crate::db::models::AppState;
@@ -105,7 +105,8 @@ pub async fn debug_purge(state: web::Data<AppState>) -> impl Responder {
     }
 
     if errors.is_empty() {
-        HttpResponse::Ok().body("<span class=\"purge-success\">All data purged successfully.</span>")
+        HttpResponse::Ok()
+            .body("<span class=\"purge-success\">All data purged successfully.</span>")
     } else {
         HttpResponse::Ok().body(format!(
             "<span class=\"purge-error\">Partial purge. Errors: {}</span>",
@@ -136,10 +137,9 @@ async fn delete_bot_messages(
             builder = builder.before(before);
         }
 
-        let messages = channel_id
-            .messages(http, builder)
-            .await
-            .map_err(|e| crate::error::AppError::Discord(format!("Failed to fetch messages: {}", e)))?;
+        let messages = channel_id.messages(http, builder).await.map_err(|e| {
+            crate::error::AppError::Discord(format!("Failed to fetch messages: {}", e))
+        })?;
 
         if messages.is_empty() {
             break;
@@ -150,10 +150,7 @@ async fn delete_bot_messages(
         for msg in &messages {
             if msg.author.id == bot_id {
                 // Also delete any threads created from this message
-                if let Err(e) = channel_id
-                    .delete_message(http, msg.id)
-                    .await
-                {
+                if let Err(e) = channel_id.delete_message(http, msg.id).await {
                     log::warn!("Failed to delete message {}: {}", msg.id, e);
                 } else {
                     deleted += 1;
