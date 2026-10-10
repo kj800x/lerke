@@ -4,8 +4,10 @@ mod db;
 mod deadman;
 mod discord;
 mod error;
+mod incidents;
 mod metrics;
 mod prelude;
+mod reconcile;
 mod web;
 mod webhooks;
 
@@ -36,6 +38,7 @@ async fn start_http(
             .service(web::incidents_fragment)
             .service(web::incident_detail_page)
             .service(web::incident_events_fragment)
+            .service(web::incident_resolve)
             .service(web::history_page)
             .service(web::history_fragment)
             .service(web::debug_webhooks_page)
@@ -114,9 +117,23 @@ async fn main() -> std::io::Result<()> {
         webhook_log: Arc::new(tokio::sync::Mutex::new(db::models::WebhookLog::new(50))),
     };
 
+    let reconcile_settings = state.config.reconcile_settings();
+    if reconcile_settings.is_none() {
+        log::info!(
+            "Grafana reconcile disabled (set GRAFANA_API_TOKEN and GRAFANA_URL/GRAFANA_API_URL to enable)"
+        );
+    }
+    let reconcile_state = state.clone();
+
     tokio::select! {
         _ = Box::pin(start_http(registry, state, bind_address)) => {},
         _ = Box::pin(deadman::heartbeat_loop(deadman_url)) => {},
+        _ = Box::pin(async move {
+            match reconcile_settings {
+                Some(settings) => reconcile::reconcile_loop(settings, reconcile_state).await,
+                None => std::future::pending::<()>().await,
+            }
+        }) => {},
     };
 
     Ok(())

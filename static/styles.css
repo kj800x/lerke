@@ -540,3 +540,28 @@ h2 {
     color: #f85149;
     font-size: 14px;
 }
+
+/* Manual resolve */
+.resolve-form {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+.resolve-btn {
+    padding: 6px 16px;
+    background: #238636;
+    color: #fff;
+    border: 1px solid #2ea043;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.resolve-btn:hover {
+    background: #2ea043;
+}
+.resolve-hint {
+    color: #8b949e;
+    font-size: 12px;
+}
