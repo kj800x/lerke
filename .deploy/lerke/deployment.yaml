@@ -41,6 +41,14 @@ spec:
                   key: UPTIME_KUMA_PUSH_URL
             - name: GRAFANA_URL
               value: "https://grafana.home.coolkev.com"
+            - name: GRAFANA_API_URL
+              value: "http://grafana.grafana.svc.cluster.local:3000"
+            - name: GRAFANA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: lerke-secrets
+                  key: GRAFANA_API_TOKEN
+                  optional: true
             - name: LERKE_URL
               value: "https://lerke.home.coolkev.com"
             - name: UPTIME_KUMA_URL

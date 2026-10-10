@@ -9,6 +9,13 @@ pub struct Config {
     pub grafana_url: Option<String>,
     pub lerke_url: Option<String>,
     pub uptime_kuma_url: Option<String>,
+    /// Base URL used for Grafana API calls (defaults to `grafana_url`). Lets the
+    /// reconciler talk to an in-cluster address while links use the external one.
+    pub grafana_api_url: Option<String>,
+    /// Grafana service account token. When set (with a Grafana URL), Lerke polls the
+    /// alertmanager API and resolves incidents whose alerts are no longer active.
+    pub grafana_api_token: Option<String>,
+    pub grafana_reconcile_interval_secs: u64,
 }
 
 impl Config {
@@ -28,6 +35,32 @@ impl Config {
             lerke_url: optional("LERKE_URL").map(|u| u.trim_end_matches('/').to_string()),
             uptime_kuma_url: optional("UPTIME_KUMA_URL")
                 .map(|u| u.trim_end_matches('/').to_string()),
+            grafana_api_url: optional("GRAFANA_API_URL")
+                .map(|u| u.trim_end_matches('/').to_string()),
+            grafana_api_token: optional("GRAFANA_API_TOKEN").filter(|t| !t.is_empty()),
+            grafana_reconcile_interval_secs: match optional("GRAFANA_RECONCILE_INTERVAL_SECS") {
+                Some(v) => v.parse().map_err(|e| {
+                    AppError::Config(format!(
+                        "GRAFANA_RECONCILE_INTERVAL_SECS must be a u64: {}",
+                        e
+                    ))
+                })?,
+                None => 60,
+            },
+        })
+    }
+
+    /// Settings for the Grafana reconcile loop, if it is configured.
+    pub fn reconcile_settings(&self) -> Option<crate::reconcile::ReconcileSettings> {
+        let token = self.grafana_api_token.clone()?;
+        let api_url = self
+            .grafana_api_url
+            .clone()
+            .or_else(|| self.grafana_url.clone())?;
+        Some(crate::reconcile::ReconcileSettings {
+            api_url,
+            api_token: token,
+            interval: std::time::Duration::from_secs(self.grafana_reconcile_interval_secs.max(5)),
         })
     }
 

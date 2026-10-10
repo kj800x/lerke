@@ -11,6 +11,8 @@ Named after the Danish word for lark (the bird), because it watches and alerts.
 - **Discord notifications** -- colored embed per incident (red=firing, green=resolved), threaded updates
 - **Web UI** -- homepage shows active incidents (calm "all clear" when empty), history page grouped by date, incident detail with metadata/events timeline
 - **REST API** -- other homelab services can send Discord messages via simple HTTP calls
+- **Stuck-incident reconciliation** -- periodically polls Grafana's alertmanager API and resolves incidents whose alert is no longer active (covers lost resolve webhooks)
+- **Manual resolve** -- "Mark resolved" button on the incident detail page for incidents whose source never sent a resolve
 - **Dead man's switch** -- heartbeats to an Uptime Kuma push monitor every 5s
 - **Prometheus metrics** -- exposed at `/api/metrics`
 - **Label variable substitution** -- alert titles and annotations support `{{ label_name }}` template syntax
@@ -29,6 +31,9 @@ Named after the Danish word for lark (the bird), because it watches and alerts.
 | `GRAFANA_URL` | No | -- | External Grafana base URL (e.g. `https://grafana.home.coolkev.com`). Rewrites `localhost:3000` URLs from webhooks |
 | `LERKE_URL` | No | -- | External Lerke base URL (e.g. `https://lerke.home.coolkev.com`). Adds "Lerke" link in Discord embeds pointing to the web UI |
 | `UPTIME_KUMA_URL` | No | -- | External Uptime Kuma base URL (e.g. `https://kuma.home.coolkev.com`). Constructs dashboard links for Uptime Kuma incidents |
+| `GRAFANA_API_TOKEN` | No | -- | Grafana service account token. Enables the reconcile loop (see [Reconciliation](#reconciliation)) |
+| `GRAFANA_API_URL` | No | `GRAFANA_URL` | Base URL for Grafana API calls, if different from the link URL (e.g. an in-cluster address like `http://grafana.grafana.svc.cluster.local:3000`) |
+| `GRAFANA_RECONCILE_INTERVAL_SECS` | No | `60` | How often to poll Grafana for active alerts (minimum 5) |
 
 ## Configuring Integrations
 
@@ -58,6 +63,22 @@ Grafana sends alerts with `dashboardURL`, `panelURL`, `silenceURL`, and `generat
 **URL annotations:** Any annotation key ending in `_url` is rendered as a clickable link (not shown in metadata). The link label is the key with the `_url` suffix removed, in sentence case. For example, `jobfather_url` becomes a link labeled "Jobfather".
 
 **Filtered labels:** The labels `alertname`, `grafana_folder`, and `priority` are excluded from the Discord embed and web UI metadata displays.
+
+### Reconciliation
+
+Lerke resolves a Grafana incident when it receives a `resolved` webhook with a matching fingerprint. If that webhook is lost (for example Grafana's database restarts, which briefly fires `DatasourceError` on every rule and then clears them while Grafana is still coming up), the incident stays firing forever.
+
+When `GRAFANA_API_TOKEN` is set, Lerke polls `GET /api/alertmanager/grafana/api/v2/alerts` every `GRAFANA_RECONCILE_INTERVAL_SECS` and resolves any firing Grafana incident whose fingerprint is absent from the active set in **two consecutive** polls. A single empty or failed poll never resolves anything, so a Grafana restart cannot wipe real incidents. Uptime Kuma incidents are not touched. Reconciled incidents get a timeline event and a Discord thread update saying the resolve webhook was never received.
+
+To create the token:
+
+1. In Grafana, go to Administration -> Users and access -> Service accounts -> Add service account
+2. Name it `lerke`, role **Viewer** (reading alert instances needs no more than that)
+3. Add a service account token and copy it -> `GRAFANA_API_TOKEN`
+
+Metrics: `lerke_incidents_reconciled` counts incidents resolved by the loop, `lerke_reconcile_errors` counts failed polls.
+
+**Manual resolve:** the incident detail page shows a "Mark resolved" button on firing incidents. It resolves the incident, records a timeline event, and updates Discord. Use it for Uptime Kuma incidents or when reconciliation is not configured.
 
 ### Uptime Kuma
 

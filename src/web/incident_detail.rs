@@ -1,4 +1,4 @@
-use actix_web::{get, web};
+use actix_web::{HttpResponse, Responder, get, post, web};
 use maud::{DOCTYPE, Markup, html};
 
 use crate::db::models::{AppState, Incident};
@@ -115,6 +115,15 @@ pub async fn incident_detail_page(
                                 span { " · Severity: " (severity) }
                             }
                         }
+                        @if incident.status == "firing" {
+                            form class="resolve-form"
+                                 method="post"
+                                 action=(format!("/incidents/{}/resolve", incident.id))
+                                 onsubmit="return confirm('Mark this incident as resolved? Use this if the alert has cleared but the resolve notification never arrived.')" {
+                                button type="submit" class="resolve-btn" { "Mark resolved" }
+                                span class="resolve-hint" { "Manually resolve if the alert source never sent a resolve notification." }
+                            }
+                        }
                         div class="detail-meta-line" {
                             @for (label, url) in &extra_links {
                                 a href=(url) target="_blank" { (label) }
@@ -186,4 +195,34 @@ pub async fn incident_events_fragment(
             }
         }
     })
+}
+
+#[post("/incidents/{id}/resolve")]
+pub async fn incident_resolve(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+) -> AppResult<impl Responder> {
+    let id = path.into_inner();
+    let incident = queries::get_incident(&state.db, id)
+        .await?
+        .ok_or_else(|| crate::error::AppError::NotFound(format!("Incident {} not found", id)))?;
+
+    if incident.status == "firing" {
+        crate::incidents::resolve_incident(
+            &state,
+            &incident,
+            "Manually marked resolved from the web UI",
+        )
+        .await?;
+    } else {
+        log::info!(
+            "Ignoring manual resolve for incident {} with status {}",
+            id,
+            incident.status
+        );
+    }
+
+    Ok(HttpResponse::SeeOther()
+        .append_header(("Location", format!("/incidents/{}", id)))
+        .finish())
 }
