@@ -41,6 +41,7 @@ async fn start_http(
             .service(web::debug_webhooks_page)
             .service(web::debug_webhooks_fragment)
             .service(web::debug_purge)
+            .service(api::incidents::list_incidents)
             .service(api::messages::create_message)
             .service(api::messages::update_message)
             .service(api::messages::reply_to_message)

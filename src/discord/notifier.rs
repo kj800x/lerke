@@ -19,14 +19,16 @@ fn get_annotation(incident: &Incident, key: &str) -> Option<String> {
 fn collect_url_annotations(incident: &Incident) -> Vec<(String, String)> {
     let mut urls = Vec::new();
     if let Ok(annotations) = serde_json::from_str::<serde_json::Value>(&incident.annotations_json)
-        && let Some(obj) = annotations.as_object() {
-            for (key, value) in obj {
-                if let Some(prefix) = key.strip_suffix("_url")
-                    && let Some(url) = value.as_str() {
-                        urls.push((url_key_to_label(prefix), url.to_string()));
-                    }
+        && let Some(obj) = annotations.as_object()
+    {
+        for (key, value) in obj {
+            if let Some(prefix) = key.strip_suffix("_url")
+                && let Some(url) = value.as_str()
+            {
+                urls.push((url_key_to_label(prefix), url.to_string()));
             }
         }
+    }
     urls
 }
 
@@ -82,15 +84,16 @@ fn build_embed(incident: &Incident, lerke_url: Option<&str>) -> CreateEmbed {
 
     // Add alert labels as fields (vertical — inline=false), filtering out noise
     if let Ok(labels) = serde_json::from_str::<serde_json::Value>(&incident.labels_json)
-        && let Some(obj) = labels.as_object() {
-            for (key, value) in obj {
-                if FILTERED_LABELS.contains(&key.as_str()) {
-                    continue;
-                }
-                let val_str = value.as_str().unwrap_or(&value.to_string()).to_string();
-                embed = embed.field(key, &val_str, false);
+        && let Some(obj) = labels.as_object()
+    {
+        for (key, value) in obj {
+            if FILTERED_LABELS.contains(&key.as_str()) {
+                continue;
             }
+            let val_str = value.as_str().unwrap_or(&value.to_string()).to_string();
+            embed = embed.field(key, &val_str, false);
         }
+    }
 
     embed
 }
