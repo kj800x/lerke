@@ -96,7 +96,7 @@ Create a **Push** type monitor in Uptime Kuma with a heartbeat interval of 10s (
 
 ## REST API
 
-All endpoints post to the Discord channel configured by `DISCORD_CHANNEL_ID`. No authentication required (designed for trusted LAN use).
+The message endpoints post to the Discord channel configured by `DISCORD_CHANNEL_ID`. No authentication required (designed for trusted LAN use).
 
 ### Create a message
 
@@ -150,6 +150,14 @@ DELETE /api/messages/{message_id}
 
 Response: { "ok": true }
 ```
+
+### List incidents
+
+```
+GET /api/incidents?status=firing
+```
+
+Read-only; does not post to Discord. `status` is `firing` or `resolved`; leave it out for every incident. Returns a JSON array of `{id, alert_name, status, severity, labels, first_firing_at, last_status_change_at, resolved_at, url}`, newest change first. `labels` is the alert's label object; `url` is the incident's Lerke page when `LERKE_URL` is set. Used by cicd's deploy-checks to hold a deploy while matching alerts fire.
 
 ### Example: long-running job notification
 

@@ -269,10 +269,10 @@ async fn process_alert(
                         state.config.lerke_url.as_deref(),
                     )
                     .await
-                    {
-                        log::error!("Failed to update Discord embed: {}", e);
-                        metrics::get().discord_notification_errors.add(1, &[]);
-                    }
+                {
+                    log::error!("Failed to update Discord embed: {}", e);
+                    metrics::get().discord_notification_errors.add(1, &[]);
+                }
 
                 if let Err(e) =
                     notifier::post_thread_update(&state.discord_http, thread_id, &event_msg).await
