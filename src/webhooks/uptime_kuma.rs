@@ -142,12 +142,13 @@ async fn process_heartbeat(
     // Build annotations
     let mut annotations = serde_json::Map::new();
     if let Some(ref desc) = monitor.description
-        && !desc.is_empty() {
-            annotations.insert(
-                "description".to_string(),
-                serde_json::Value::String(desc.clone()),
-            );
-        }
+        && !desc.is_empty()
+    {
+        annotations.insert(
+            "description".to_string(),
+            serde_json::Value::String(desc.clone()),
+        );
+    }
     if !heartbeat.msg.is_empty() {
         annotations.insert(
             "summary".to_string(),
@@ -155,12 +156,14 @@ async fn process_heartbeat(
         );
     }
     if let Some(ref url) = monitor.url
-        && !url.is_empty() && url != "https://" {
-            annotations.insert(
-                "site_url".to_string(),
-                serde_json::Value::String(url.clone()),
-            );
-        }
+        && !url.is_empty()
+        && url != "https://"
+    {
+        annotations.insert(
+            "site_url".to_string(),
+            serde_json::Value::String(url.clone()),
+        );
+    }
 
     // Uptime Kuma dashboard link — stored as annotation so it renders as "Kuma" link
     if let Some(ref base) = state.config.uptime_kuma_url {
@@ -264,10 +267,10 @@ async fn process_heartbeat(
                         state.config.lerke_url.as_deref(),
                     )
                     .await
-                    {
-                        log::error!("Failed to update Discord embed: {}", e);
-                        metrics::get().discord_notification_errors.add(1, &[]);
-                    }
+                {
+                    log::error!("Failed to update Discord embed: {}", e);
+                    metrics::get().discord_notification_errors.add(1, &[]);
+                }
 
                 if let Err(e) =
                     notifier::post_thread_update(&state.discord_http, thread_id, &event_msg).await
