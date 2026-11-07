@@ -156,3 +156,31 @@ pub async fn create_incident_event(
     .await?;
     Ok(result.last_insert_rowid())
 }
+
+/// Whether the daily digest for `digest_date` (YYYY-MM-DD, local) was already handled.
+pub async fn digest_sent(pool: &SqlitePool, digest_date: &str) -> AppResult<bool> {
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT digest_date FROM digests WHERE digest_date = ?")
+            .bind(digest_date)
+            .fetch_optional(pool)
+            .await?;
+    Ok(row.is_some())
+}
+
+/// Record that the daily digest for `digest_date` was handled.
+pub async fn record_digest(
+    pool: &SqlitePool,
+    digest_date: &str,
+    sent_at: &str,
+    open_incidents: i64,
+) -> AppResult<()> {
+    sqlx::query(
+        "INSERT OR REPLACE INTO digests (digest_date, sent_at, open_incidents) VALUES (?, ?, ?)",
+    )
+    .bind(digest_date)
+    .bind(sent_at)
+    .bind(open_incidents)
+    .execute(pool)
+    .await?;
+    Ok(())
+}

@@ -16,6 +16,8 @@ pub struct Config {
     /// alertmanager API and resolves incidents whose alerts are no longer active.
     pub grafana_api_token: Option<String>,
     pub grafana_reconcile_interval_secs: u64,
+    /// Local (America/New_York) time of the daily "still open" digest. `None` disables it.
+    pub digest_time: Option<chrono::NaiveTime>,
 }
 
 impl Config {
@@ -47,6 +49,7 @@ impl Config {
                 })?,
                 None => 60,
             },
+            digest_time: parse_digest_time(optional("DIGEST_TIME").as_deref())?,
         })
     }
 
@@ -84,10 +87,39 @@ impl Config {
     }
 }
 
+/// `DIGEST_TIME` is `HH:MM` (24h, Eastern). Unset defaults to 18:00; `off` or an empty
+/// value disables the digest.
+fn parse_digest_time(value: Option<&str>) -> Result<Option<chrono::NaiveTime>, AppError> {
+    match value.map(str::trim) {
+        None => Ok(chrono::NaiveTime::from_hms_opt(18, 0, 0)),
+        Some("") => Ok(None),
+        Some(v) if v.eq_ignore_ascii_case("off") => Ok(None),
+        Some(v) => chrono::NaiveTime::parse_from_str(v, "%H:%M")
+            .map(Some)
+            .map_err(|e| AppError::Config(format!("DIGEST_TIME must be HH:MM or 'off': {}", e))),
+    }
+}
+
 fn required(name: &str) -> Result<String, AppError> {
     std::env::var(name).map_err(|_| AppError::Config(format!("{} must be set", name)))
 }
 
 fn optional(name: &str) -> Option<String> {
     std::env::var(name).ok()
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn digest_time_parsing() {
+        let six = chrono::NaiveTime::from_hms_opt(18, 0, 0);
+        assert_eq!(parse_digest_time(None).unwrap(), six);
+        assert_eq!(parse_digest_time(Some("18:00")).unwrap(), six);
+        assert_eq!(parse_digest_time(Some("off")).unwrap(), None);
+        assert_eq!(parse_digest_time(Some("")).unwrap(), None);
+        assert!(parse_digest_time(Some("6pm")).is_err());
+    }
 }
