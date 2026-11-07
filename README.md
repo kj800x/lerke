@@ -14,7 +14,7 @@ Named after the Danish word for lark (the bird), because it watches and alerts.
 - **Stuck-incident reconciliation** -- periodically polls Grafana's alertmanager API and resolves incidents whose alert is no longer active (covers lost resolve webhooks)
 - **Daily "still open" digest** -- every evening at `DIGEST_TIME` (default 6pm Eastern) posts one Discord message listing every incident that is still firing, with links to each incident's thread and Lerke page, so long-running incidents don't get forgotten. Skipped on days with nothing open
 - **Manual resolve** -- "Mark resolved" button on the incident detail page for incidents whose source never sent a resolve
-- **Dead man's switch** -- heartbeats to an Uptime Kuma push monitor every 5s
+- **Dead man's switch (buddy check)** -- heartbeats to an Uptime Kuma push monitor every 5s so Kuma alerts if Lerke dies. Lerke watches back: only a 2xx counts as a heartbeat, and after ~1 minute of failures (Kuma down or unreachable) Lerke opens its own "Uptime Kuma unreachable from Lerke" incident, resolved by the next successful heartbeat
 - **Prometheus metrics** -- exposed at `/api/metrics`
 - **Label variable substitution** -- alert titles and annotations support `{{ label_name }}` template syntax
 - **URL annotations** -- annotation keys ending in `_url` are automatically rendered as links

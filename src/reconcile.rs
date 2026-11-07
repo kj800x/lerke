@@ -17,7 +17,7 @@ use serde::Deserialize;
 
 use crate::db::models::{AppState, Incident};
 use crate::db::queries;
-use crate::incidents::{UPTIME_KUMA_UID_PREFIX, resolve_incident};
+use crate::incidents::{is_grafana_incident, resolve_incident};
 use crate::metrics;
 
 const ALERTS_PATH: &str = "/api/alertmanager/grafana/api/v2/alerts";
@@ -33,7 +33,7 @@ pub struct ReconcileSettings {
     pub interval: Duration,
 }
 
-/// Returns the firing Grafana incidents (not Uptime Kuma) whose fingerprint is absent
+/// Returns the firing Grafana incidents (not Uptime Kuma or Lerke's own) whose fingerprint is absent
 /// from `active` and was also absent in the previous poll (`missing_last_poll`).
 pub fn select_stale<'a>(
     firing: &'a [Incident],
@@ -42,7 +42,7 @@ pub fn select_stale<'a>(
 ) -> Vec<&'a Incident> {
     firing
         .iter()
-        .filter(|i| !i.grafana_alert_uid.starts_with(UPTIME_KUMA_UID_PREFIX))
+        .filter(|i| is_grafana_incident(&i.grafana_alert_uid))
         .filter(|i| !active.contains(&i.grafana_alert_uid))
         .filter(|i| missing_last_poll.contains(&i.grafana_alert_uid))
         .collect()
@@ -52,7 +52,7 @@ pub fn select_stale<'a>(
 pub fn currently_missing(firing: &[Incident], active: &HashSet<String>) -> HashSet<String> {
     firing
         .iter()
-        .filter(|i| !i.grafana_alert_uid.starts_with(UPTIME_KUMA_UID_PREFIX))
+        .filter(|i| is_grafana_incident(&i.grafana_alert_uid))
         .filter(|i| !active.contains(&i.grafana_alert_uid))
         .map(|i| i.grafana_alert_uid.clone())
         .collect()
@@ -217,6 +217,14 @@ mod tests {
         let active = set(&["aaa"]);
         assert!(select_stale(&firing, &active, &missing_before).is_empty());
         assert!(currently_missing(&firing, &active).is_empty());
+    }
+
+    #[test]
+    fn lerke_incidents_are_ignored() {
+        let firing = vec![incident("lerke:deadman")];
+        let missing_before = set(&["lerke:deadman"]);
+        assert!(select_stale(&firing, &HashSet::new(), &missing_before).is_empty());
+        assert!(currently_missing(&firing, &HashSet::new()).is_empty());
     }
 
     #[test]
