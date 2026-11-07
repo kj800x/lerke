@@ -12,6 +12,7 @@ Named after the Danish word for lark (the bird), because it watches and alerts.
 - **Web UI** -- homepage shows active incidents (calm "all clear" when empty), history page grouped by date, incident detail with metadata/events timeline
 - **REST API** -- other homelab services can send Discord messages via simple HTTP calls
 - **Stuck-incident reconciliation** -- periodically polls Grafana's alertmanager API and resolves incidents whose alert is no longer active (covers lost resolve webhooks)
+- **Daily "still open" digest** -- every evening at `DIGEST_TIME` (default 6pm Eastern) posts one Discord message listing every incident that is still firing, with links to each incident's thread and Lerke page, so long-running incidents don't get forgotten. Skipped on days with nothing open
 - **Manual resolve** -- "Mark resolved" button on the incident detail page for incidents whose source never sent a resolve
 - **Dead man's switch** -- heartbeats to an Uptime Kuma push monitor every 5s
 - **Prometheus metrics** -- exposed at `/api/metrics`
@@ -33,6 +34,7 @@ Named after the Danish word for lark (the bird), because it watches and alerts.
 | `UPTIME_KUMA_URL` | No | -- | External Uptime Kuma base URL (e.g. `https://kuma.home.coolkev.com`). Constructs dashboard links for Uptime Kuma incidents |
 | `GRAFANA_API_TOKEN` | No | -- | Grafana service account token. Enables the reconcile loop (see [Reconciliation](#reconciliation)) |
 | `GRAFANA_API_URL` | No | `GRAFANA_URL` | Base URL for Grafana API calls, if different from the link URL (e.g. an in-cluster address like `http://grafana.grafana.svc.cluster.local:3000`) |
+| `DIGEST_TIME` | No | `18:00` | Time (24h `HH:MM`, America/New_York) of the daily "still open" digest. `off` disables it |
 | `GRAFANA_RECONCILE_INTERVAL_SECS` | No | `60` | How often to poll Grafana for active alerts (minimum 5) |
 
 ## Configuring Integrations

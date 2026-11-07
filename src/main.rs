@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod db;
 mod deadman;
+mod digest;
 mod discord;
 mod error;
 mod incidents;
@@ -126,12 +127,24 @@ async fn main() -> std::io::Result<()> {
     }
     let reconcile_state = state.clone();
 
+    let digest_time = state.config.digest_time;
+    if digest_time.is_none() {
+        log::info!("Daily digest disabled (DIGEST_TIME=off)");
+    }
+    let digest_state = state.clone();
+
     tokio::select! {
         _ = Box::pin(start_http(registry, state, bind_address)) => {},
         _ = Box::pin(deadman::heartbeat_loop(deadman_url)) => {},
         _ = Box::pin(async move {
             match reconcile_settings {
                 Some(settings) => reconcile::reconcile_loop(settings, reconcile_state).await,
+                None => std::future::pending::<()>().await,
+            }
+        }) => {},
+        _ = Box::pin(async move {
+            match digest_time {
+                Some(time) => digest::digest_loop(time, digest_state).await,
                 None => std::future::pending::<()>().await,
             }
         }) => {},

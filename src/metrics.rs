@@ -11,6 +11,7 @@ pub struct Metrics {
     pub deadman_heartbeats: Counter<u64>,
     pub incidents_reconciled: Counter<u64>,
     pub reconcile_errors: Counter<u64>,
+    pub digests_sent: Counter<u64>,
 }
 
 static METRICS: OnceLock<Metrics> = OnceLock::new();
@@ -29,6 +30,7 @@ pub fn init(_registry: &prometheus::Registry) -> Result<(), anyhow::Error> {
         deadman_heartbeats: meter.u64_counter("lerke_deadman_heartbeats").init(),
         incidents_reconciled: meter.u64_counter("lerke_incidents_reconciled").init(),
         reconcile_errors: meter.u64_counter("lerke_reconcile_errors").init(),
+        digests_sent: meter.u64_counter("lerke_digests_sent").init(),
     };
 
     METRICS
