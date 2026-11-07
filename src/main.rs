@@ -126,6 +126,7 @@ async fn main() -> std::io::Result<()> {
         );
     }
     let reconcile_state = state.clone();
+    let deadman_state = state.clone();
 
     let digest_time = state.config.digest_time;
     if digest_time.is_none() {
@@ -135,7 +136,7 @@ async fn main() -> std::io::Result<()> {
 
     tokio::select! {
         _ = Box::pin(start_http(registry, state, bind_address)) => {},
-        _ = Box::pin(deadman::heartbeat_loop(deadman_url)) => {},
+        _ = Box::pin(deadman::heartbeat_loop(deadman_url, deadman_state)) => {},
         _ = Box::pin(async move {
             match reconcile_settings {
                 Some(settings) => reconcile::reconcile_loop(settings, reconcile_state).await,

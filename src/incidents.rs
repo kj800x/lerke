@@ -9,6 +9,81 @@ use crate::metrics;
 /// Prefix used for Uptime Kuma incident UIDs (see `webhooks::uptime_kuma`).
 pub const UPTIME_KUMA_UID_PREFIX: &str = "uptime-kuma:";
 
+/// Prefix used for incidents Lerke raises about itself (e.g. the dead man's switch).
+pub const LERKE_UID_PREFIX: &str = "lerke:";
+
+/// Whether an incident came from a Grafana alert (and so can be reconciled against
+/// Grafana's alertmanager), as opposed to Uptime Kuma or Lerke itself.
+pub fn is_grafana_incident(uid: &str) -> bool {
+    !uid.starts_with(UPTIME_KUMA_UID_PREFIX) && !uid.starts_with(LERKE_UID_PREFIX)
+}
+
+/// Create a firing incident, record `event_msg` on its timeline, and post it to Discord.
+pub async fn open_incident(
+    state: &AppState,
+    uid: &str,
+    alert_name: &str,
+    labels_json: &str,
+    annotations_json: &str,
+    event_msg: &str,
+) -> AppResult<i64> {
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+    let incident_id = queries::create_incident(
+        &state.db,
+        uid,
+        alert_name,
+        "firing",
+        None,
+        None,
+        None,
+        None,
+        None,
+        labels_json,
+        annotations_json,
+        &now,
+    )
+    .await?;
+    metrics::get().incidents_created.add(1, &[]);
+
+    queries::create_incident_event(&state.db, incident_id, "firing", event_msg, None).await?;
+
+    if let Some(incident) = queries::get_incident(&state.db, incident_id).await? {
+        match notifier::send_firing_notification(
+            &state.discord_http,
+            state.config.discord_channel_id,
+            &incident,
+            state.config.lerke_url.as_deref(),
+        )
+        .await
+        {
+            Ok((message_id, channel_id, thread_id)) => {
+                queries::update_incident_discord(
+                    &state.db,
+                    incident_id,
+                    &message_id,
+                    &channel_id,
+                    &thread_id,
+                )
+                .await?;
+                metrics::get().discord_notifications_sent.add(1, &[]);
+            }
+            Err(e) => {
+                log::error!("Failed to send Discord notification: {}", e);
+                metrics::get().discord_notification_errors.add(1, &[]);
+            }
+        }
+    }
+
+    log::info!(
+        "Opened incident {} ({}): {}",
+        incident_id,
+        alert_name,
+        event_msg
+    );
+    Ok(incident_id)
+}
+
 /// Mark a firing incident as resolved, record an event, and update Discord.
 ///
 /// `event_msg` is stored on the incident timeline and posted to the Discord thread,
